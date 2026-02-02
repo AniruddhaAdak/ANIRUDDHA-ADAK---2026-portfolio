@@ -5,17 +5,7 @@ import { generateImage, editImage, generateSpeech, decodeBase64Audio } from '../
 import { ImageSize, AspectRatio } from '../types';
 import { Wand2, Mic2, Palette, Box, ChevronRight, Loader2, Zap, Play } from 'lucide-react';
 
-// Fix: Use optional modifier for aistudio and ensure it doesn't clash with the component name
-declare global {
-  interface Window {
-    aistudio?: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
-  }
-}
-
-// Fix: Renamed component to AIStudioSection to avoid collision with global window.aistudio property name
+// Renamed component to AIStudioSection to avoid collision with global window.aistudio property name
 const AIStudioSection: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'generate' | 'edit' | 'voice'>('generate');
   const [prompt, setPrompt] = useState('');
@@ -46,13 +36,19 @@ const AIStudioSection: React.FC = () => {
     try {
       if (activeTab === 'generate') {
         if (!prompt) return;
-        // Mandatory API key selection for Gemini 3 Pro models
-        if (typeof window !== 'undefined' && window.aistudio) {
-          const hasKey = await window.aistudio.hasSelectedApiKey?.();
+        
+        // Mandatory API key selection for Gemini 3 Pro models (K2 or K4 quality)
+        const isHighQuality = size === ImageSize.K2 || size === ImageSize.K4;
+        
+        // Fix: Use inline type casting for window to avoid global declaration conflicts
+        if (isHighQuality && typeof window !== 'undefined' && (window as any).aistudio) {
+          const hasKey = await (window as any).aistudio.hasSelectedApiKey();
           if (!hasKey) {
-            await window.aistudio.openSelectKey?.();
+            await (window as any).aistudio.openSelectKey();
+            // Proceed assuming key selection was successful to avoid race conditions
           }
         }
+        
         const img = await generateImage(prompt, size, ratio);
         setResultImage(img);
       } else if (activeTab === 'edit') {
@@ -63,7 +59,8 @@ const AIStudioSection: React.FC = () => {
         if (!voiceText) return;
         const base64Audio = await generateSpeech(voiceText);
         if (base64Audio) {
-          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          // Initialize AudioContext with standard 24kHz sample rate for PCM audio
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
           const buffer = await decodeBase64Audio(base64Audio, audioCtx);
           const source = audioCtx.createBufferSource();
           source.buffer = buffer;
@@ -75,10 +72,10 @@ const AIStudioSection: React.FC = () => {
       }
     } catch (error) {
       console.error(error);
-      // Reset key selection if entity not found
+      // If the request fails with "Requested entity was not found", reset the key selection state
       if (error instanceof Error && error.message.includes("Requested entity was not found")) {
-        if (typeof window !== 'undefined' && window.aistudio) {
-          await window.aistudio.openSelectKey?.();
+        if (typeof window !== 'undefined' && (window as any).aistudio) {
+          await (window as any).aistudio.openSelectKey();
         }
       }
     } finally {
@@ -251,6 +248,7 @@ const AIStudioSection: React.FC = () => {
                     <p className="text-[10px] uppercase font-black tracking-[0.8em] text-cyan-500 animate-pulse">
                       {activeTab === 'voice' ? "Generating speech..." : "Building your image..."}
                     </p>
+                    <p className="text-[9px] text-white/40 max-w-[200px] mx-auto mt-4">This can take a few minutes as we craft a high-quality response.</p>
                   </div>
                 </div>
               )}

@@ -1,8 +1,5 @@
 {
   "name": "Aniruddha Adak - 2026 Portfolio",
   "description": "An AI-powered, hyper-modern portfolio for 2026 featuring Gemini Live API, image generation, search grounding, and advanced thinking models.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
+  "requestFramePermissions": []
 }

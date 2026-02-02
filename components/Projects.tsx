@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { ExternalLink, Layers } from 'lucide-react';
 
 const Projects: React.FC = () => {
@@ -31,7 +31,8 @@ const Projects: React.FC = () => {
     }
   ];
 
-  const container = {
+  // Fix: Explicitly type variants as Variants to satisfy Framer Motion's strict index signature and easing types
+  const container: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -39,9 +40,17 @@ const Projects: React.FC = () => {
     }
   };
 
-  const item = {
+  // Fix: Explicitly type variants as Variants to ensure 'ease' string is treated as a valid Easing type
+  const item: Variants = {
     hidden: { opacity: 0, y: 30 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
+    show: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { 
+        duration: 0.8, 
+        ease: "easeOut" 
+      } 
+    }
   };
 
   return (

@@ -1,16 +1,36 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { complexChat } from '../services/geminiService';
+import { complexChat, getSuggestions } from '../services/geminiService';
 import { Message } from '../types';
-import { Terminal as TerminalIcon, Send, Shield, Globe } from 'lucide-react';
+import { Terminal as TerminalIcon, Send, Shield, Globe, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Contact: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', content: "Hello! I am Aniruddha's AI assistant. How can I help you today?" }
+    { role: 'model', content: "Hello! I am Aniruddha's AI assistant. I know all about his journey, skills, and projects. What would you like to know?" }
   ]);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([
+    "Who is Aniruddha?", "Latest projects?", "Skills summary", "Contact details"
+  ]);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Logic for "variable" suggestions as user types
+  const allPossibleKeywords = [
+    { key: 'proj', label: 'Tell me about projects' },
+    { key: 'edu', label: 'Where does he study?' },
+    { key: 'coll', label: 'About BBIT college' },
+    { key: 'skil', label: 'What are his skills?' },
+    { key: 'tech', label: 'Technical stack' },
+    { key: 'mail', label: 'What is his email?' },
+    { key: 'hack', label: 'Hacktoberfest record' },
+    { key: 'kolk', label: 'About Kolkata' },
+  ];
+
+  const filteredSuggestions = input.length > 0 
+    ? allPossibleKeywords.filter(k => k.label.toLowerCase().includes(input.toLowerCase())).map(k => k.label)
+    : suggestions;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -18,19 +38,27 @@ const Contact: React.FC = () => {
     }
   }, [messages, isThinking]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isThinking) return;
+  const handleSend = async (text?: string) => {
+    const messageToSend = text || input;
+    if (!messageToSend.trim() || isThinking) return;
     
-    const userMsg: Message = { role: 'user', content: input };
+    const userMsg: Message = { role: 'user', content: messageToSend };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsThinking(true);
 
     try {
-      const response = await complexChat(messages.concat(userMsg));
+      const chatHistory = messages.concat(userMsg);
+      const response = await complexChat(chatHistory);
       setMessages(prev => [...prev, { role: 'model', content: response }]);
+      
+      // Fetch dynamic suggestions based on the response
+      const newSuggestions = await getSuggestions(messageToSend, response);
+      if (newSuggestions && newSuggestions.length > 0) {
+        setSuggestions(newSuggestions);
+      }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'model', content: "Sorry, something went wrong. Please try again." }]);
+      setMessages(prev => [...prev, { role: 'model', content: "I'm having a little trouble thinking. Maybe try asking in a different way?" }]);
     } finally {
       setIsThinking(false);
     }
@@ -104,19 +132,40 @@ const Contact: React.FC = () => {
           )}
         </div>
 
-        <div className="p-8 bg-black/50 border-t border-white/5">
+        <div className="p-8 bg-black/50 border-t border-white/5 space-y-4">
+          {/* Suggestions Layer */}
+          <div className="flex flex-wrap gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <AnimatePresence>
+              {filteredSuggestions.slice(0, 4).map((suggestion, idx) => (
+                <motion.button
+                  key={suggestion}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => handleSend(suggestion)}
+                  className="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-cyan-500 transition-all whitespace-nowrap"
+                >
+                  {suggestion}
+                </motion.button>
+              ))}
+            </AnimatePresence>
+          </div>
+
           <div className="flex gap-4 items-center">
-            <span className="text-cyan-500 font-black">$</span>
+            <div className="p-2 glass text-cyan-500">
+               <Sparkles className="w-4 h-4" />
+            </div>
             <input 
               type="text" 
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask me anything..."
+              placeholder="Type a question or select a suggestion..."
               className="flex-1 bg-transparent border-none text-white text-sm focus:outline-none font-sans placeholder:text-slate-800"
             />
             <button 
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={isThinking}
               className="p-4 bg-cyan-500 hover:bg-white text-black transition-all disabled:opacity-50"
             >
